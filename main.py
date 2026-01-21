@@ -1,4 +1,5 @@
-
+#allows for easier UX
+import os
 
 # grabs next 2 bytes of given location
 def u16le(b, off):
@@ -277,14 +278,71 @@ def editSoldier():
 
         input("Press Enter to continue")
 
-#have user select where SOLDER.DAT is
+#have user select where SOLDIER.DAT is
 def chooseFile():
     global mainFile
-    print("Input the directory of SOLDIERS.DAT")
-    print(r"Example - 'C:\Users\<username>\Downloads/SOLDIERS.DAT'")
-    mainFile = input("File Location: ")
+
+    print("Input the directory containing SOLDIER.DAT")
+    print(r"Example - if 'C:\Users\<username>\Downloads\SOLDIER.DAT' then input 'C:\Users\<username>\Downloads\'")
+
+    userInput = input("Directory: ").strip().strip('"')
+    mainFile = findFile(userInput, "SOLDIER.DAT")
+
+    if mainFile == None:
+        print(f"SOLDIER.DAT was not found in {userInput}")
+        input("Press Enter to continue")
+        return
+    
     print(f"Saved as: {mainFile}")
     input("Press Enter to continue")
+
+#makes a stat to every single soldier possible for the given user input
+def allStatChange():
+    try:
+        newVal = int(input("Enter new value (0-255): ").strip())
+        if not (0 <= newVal <= 255):
+            raise ValueError
+    except ValueError:
+        print("Invalid value")
+        input("Press Enter to continue")
+        return False
+    
+    confirm = input(f"Confirm change all stats to: {newVal}? (y/n): ").strip().lower()
+    if confirm != "y":
+        print("Canceled.")
+        input("Press Enter to continue")
+        return False
+    
+    with open(mainFile, "rb") as f:
+            while True:
+                recStart = f.tell()
+                soldier = f.read(structLen)
+                if len(soldier) < structLen:
+                    break
+                if chosenGame == "X-COM: TFTD":
+                    rank = soldier[0x0A] | (soldier[0x0B] << 8)
+                else:
+                    rank = soldier[0x00] | (soldier[0x01] << 8)
+                
+                if rank == 0xFFFF:
+                    continue
+                else:
+                    for offset, label in statsActive.values():
+                        if "Bravery" in label:
+                            continue
+                        if chosenGame == "X-COM: TFTD":
+                            name = soldier[0x23:0x23+27].split(b'\x00')[0].decode("ascii", errors="ignore").strip()
+                        else:
+                            name = soldier[0x10:0x10+25].split(b'\x00')[0].decode("ascii", errors="ignore").strip()
+                        recordStart = recStart
+                        if writeSoldier(recordStart, offset, newVal):
+                            print(f"Saved to {newVal} to {name} for {label}")
+                        else:
+                            print(f"Save failed to {name} for {label}")
+                
+            return True
+
+                
 
 
 
@@ -304,8 +362,9 @@ def batchChange():
         print("6. Firing Accuracy")
         print("7. Throwing Accuracy")
         print("8. Strength")
-        print (f"9.  {psiTerm} skill")
-        print (f"10. {psiTerm} strength")
+        print(f"9. {psiTerm} skill")
+        print(f"10. {psiTerm} strength")
+        print("11. Change all stats (except Bravery) to a value")
         print("0. Exit editor")
 
         usersInput = input("--type a number and press enter to choose a command-- ").strip()
@@ -321,6 +380,16 @@ def batchChange():
             print("Exiting")
             input("Press Enter to continue")
             return
+        
+        if usersInput == 11:
+            if allStatChange():
+                print("Saved changest to all soldiers")
+                input("Press Enter to continue")
+                return
+            else:
+                print("Save failed")
+                input("Press Enter to continue")
+                return
 
         if usersInput not in statsActive:
             print("Invalid input")
@@ -413,20 +482,49 @@ def chooseGame():
 #have user select where UNITPOS.DAT is
 def definePosFile():
     global posFile
-    print("Input the directory of UNITPOS.DAT")
-    print(r"Example - 'C:\Users\<username>\Downloads/UNITPOS.DAT'")
-    posFile = input("File Location: ")
+
+    print("Input the directory containing UNITPOS.DAT")
+    print(r"Example - if 'C:\Users\<username>\Downloads\UNITPOS.DAT' then input 'C:\Users\<username>\Downloads\'")
+
+    userInput = input("Directory: ").strip().strip('"')
+    posFile = findFile(userInput, "UNITPOS.DAT")
+
+    if posFile == None:
+        print(f"UNITPOS.DAT was not found in {userInput}")
+        input("Press Enter to continue")
+        return
+    
     print(f"Saved as: {posFile}")
     input("Press Enter to continue")
 
 #have user select where UNITREF.DAT is
 def defineRefFile():
     global refFile
-    print("Input the directory of UNITREF.DAT")
-    print(r"Example - 'C:\Users\<username>\Downloads/UNITREF.DAT'")
-    refFile = input("File Location: ")
+
+    print("Input the directory containing UNITREF.DAT")
+    print(r"Example - if 'C:\Users\<username>\Downloads\UNITREF.DAT' then input 'C:\Users\<username>\Downloads\'")
+
+    userInput = input("Directory: ").strip().strip('"')
+    refFile = findFile(userInput, "UNITREF.DAT")
+
+    if refFile == None:
+        print(f"UNITREF.DAT was not found in {userInput}")
+        input("Press Enter to continue")
+        return
+    
     print(f"Saved as: {refFile}")
     input("Press Enter to continue")
+
+#finds target file in a given directory path - dfs
+def findFile(folder, targ):
+    folder = os.path.normpath(folder)
+    if not os.path.isdir(folder):
+        return None
+
+    for root, dirs, files in os.walk(folder):
+        if targ in files:
+            return os.path.join(root, targ)
+    return None
 
 #function to write to the given file
 def writeUnit(path, record_start, offset, new_val):
@@ -509,9 +607,7 @@ def killEnemiesMenu():
         else:
             print("Invalid input") 
             input("Press Enter to continue")  
-        
-
-
+    
 
 # variables
 run = 1
